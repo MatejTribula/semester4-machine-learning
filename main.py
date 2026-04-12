@@ -19,7 +19,7 @@ df = pd.read_excel("merged_combined_samples_data.xlsx")
 
 # string representation list -> python list
 df['hrv_rmssd'] = df['hrv_rmssd'].apply(ast.literal_eval)
-df['bpm']       = df['bpm'].apply(ast.literal_eval)
+df['bpm'] = df['bpm'].apply(ast.literal_eval)
 
 
 # expand arrays into statistical features
@@ -56,12 +56,6 @@ df = df.drop(columns=[
 #add hrv and bpm features to cleaned data frame
 df = pd.concat([df, hrv_features, bpm_features], axis=1)
 
-# sanity check
-
-# print(df.shape)
-# print(df.columns.tolist())
-# print(df.head(2))
-
 #convert symptom degree to binary - check first if symptom degree is larger than 0 and then converts true/false to 1/0
 df['label'] = (df['symptom_degree'] > 0).astype(int)
 
@@ -74,7 +68,7 @@ df = df.sort_values(['terra_user_id', 'date'])
 
 # ROLLING WINDOW TIMEE
 
-def data_frame_to_supervised(df, window_size = 4, predict_ahead = 1):
+def data_frame_to_supervised(df, window_size = 20, predict_ahead = 1):
     X = []
     Y = []
     pids = []
