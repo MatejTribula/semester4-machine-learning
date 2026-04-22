@@ -4,3 +4,5 @@ matplotlib
 openpyxl
 xgboost
 scikit-learn
+scipy
+lightgbm

@@ -19,7 +19,7 @@
 
 ---
 
-## Steps Taken
+## Steps Taken (deprecated)
 
 ### 1. Read data
 Read patient data from `.xlsx` file into a pandas DataFrame.
