@@ -5,3 +5,6 @@ openpyxl
 xgboost
 scikit-learn
 mlflow
+fastapi
+uvicorn
+python-multipart
