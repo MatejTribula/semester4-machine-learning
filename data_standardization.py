@@ -17,19 +17,45 @@ def expand_array_features(df, col):
     }, index=df.index)
 
 
+FEATURE_EXCLUDE = ['terra_user_id', 'date', 'symptom_degree', 'label']
+
+
+def prepare_patient_df(pid, patient_df):
+    patient_df = patient_df.groupby('date').mean(numeric_only=True).reset_index()
+    patient_df['terra_user_id'] = pid
+    patient_df = patient_df.set_index('date').resample('D').asfreq().ffill().reset_index()
+    return patient_df
+
+
+def get_inference_windows(df, window_size=14, predict_ahead=1):
+    results = []
+    for pid, patient_df in df.groupby('terra_user_id'):
+        patient_df = prepare_patient_df(pid, patient_df)
+        feature_cols = [c for c in patient_df.columns if c not in FEATURE_EXCLUDE]
+
+        if len(patient_df) < window_size + predict_ahead:
+            for _, row in patient_df.iterrows():
+                results.append((pid, row['date'], None))
+            continue
+
+        for i in range(len(patient_df) - window_size - predict_ahead + 1):
+            prediction_date = patient_df.iloc[i + window_size + predict_ahead - 1]['date']
+            window = patient_df.iloc[i: i + window_size][feature_cols]
+            results.append((pid, prediction_date, window.values.flatten()))
+
+    return results
+
+
 def data_frame_to_supervised(df, window_size=14, predict_ahead=1):
     X, Y, pids = [], [], []
 
     for pid, patient_df in df.groupby('terra_user_id'):
-        patient_df = patient_df.groupby('date').mean(numeric_only=True).reset_index()
-        patient_df['terra_user_id'] = pid
-        patient_df = patient_df.set_index('date').resample('D').asfreq().ffill().reset_index()
+        patient_df = prepare_patient_df(pid, patient_df)
 
         if len(patient_df) < window_size + predict_ahead:
             continue
 
-        feature_cols = [c for c in patient_df.columns
-                        if c not in ['terra_user_id', 'date', 'symptom_degree', 'label']]
+        feature_cols = [c for c in patient_df.columns if c not in FEATURE_EXCLUDE]
 
         for i in range(len(patient_df) - window_size - predict_ahead + 1):
             window = patient_df.iloc[i: i + window_size][feature_cols]
@@ -40,19 +66,13 @@ def data_frame_to_supervised(df, window_size=14, predict_ahead=1):
     return np.array(X), np.array(Y), np.array(pids)
 
 
-def prepare_data(filepath, window_size=14, predict_ahead=1, test_size=0.2, random_state=42):
-    # load
-    df = pd.read_excel(filepath)
-
-    # parse string lists
+def preprocess(df):
     df['hrv_rmssd'] = df['hrv_rmssd'].apply(ast.literal_eval)
     df['bpm'] = df['bpm'].apply(ast.literal_eval)
 
-    # feature engineering
     hrv_features = expand_array_features(df, 'hrv_rmssd')
     bpm_features = expand_array_features(df, 'bpm')
 
-    # drop irrelevant columns
     df = df.drop(columns=[
         'hrv_rmssd', 'bpm',
         'timestamp_intervals_seconds_hrv_rmssd',
@@ -63,6 +83,14 @@ def prepare_data(filepath, window_size=14, predict_ahead=1, test_size=0.2, rando
     ])
 
     df = pd.concat([df, hrv_features, bpm_features], axis=1)
+    df = df.sort_values(['terra_user_id', 'date'])
+
+    return df
+
+
+def prepare_data(filepath, window_size=14, predict_ahead=1, test_size=0.2, random_state=42):
+    df = pd.read_excel(filepath)
+    df = preprocess(df)
 
     # binary label
     df['label'] = (df['symptom_degree'] > 0).astype(int)
