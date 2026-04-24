@@ -17,7 +17,36 @@ def expand_array_features(df, col):
     }, index=df.index)
 
 
-def data_frame_to_supervised(df, window_size=5, predict_ahead=1):
+FEATURE_EXCLUDE = ['terra_user_id', 'date', 'symptom_degree', 'label']
+
+
+def prepare_patient_df(pid, patient_df):
+    patient_df = patient_df.groupby('date').mean(numeric_only=True).reset_index()
+    patient_df['terra_user_id'] = pid
+    patient_df = patient_df.set_index('date').resample('D').asfreq().ffill().reset_index()
+    return patient_df
+
+
+def get_inference_windows(df, window_size, predict_ahead):
+    results = []
+    for pid, patient_df in df.groupby('terra_user_id'):
+        patient_df = prepare_patient_df(pid, patient_df)
+        feature_cols = [c for c in patient_df.columns if c not in FEATURE_EXCLUDE]
+
+        if len(patient_df) < window_size + predict_ahead:
+            for _, row in patient_df.iterrows():
+                results.append((pid, row['date'], None))
+            continue
+
+        for i in range(len(patient_df) - window_size - predict_ahead + 1):
+            prediction_date = patient_df.iloc[i + window_size + predict_ahead - 1]['date']
+            window = patient_df.iloc[i: i + window_size][feature_cols]
+            results.append((pid, prediction_date, window.values.flatten()))
+
+    return results
+
+
+def data_frame_to_supervised(df, window_size, predict_ahead):
 
     X = []
     Y = []
@@ -25,12 +54,7 @@ def data_frame_to_supervised(df, window_size=5, predict_ahead=1):
     feature_names = None 
 
     for pid, patient_df in df.groupby('terra_user_id'):
-
-        patient_df = patient_df.sort_values('date').copy()
-        patient_df = patient_df.groupby('date', as_index=False).mean(numeric_only=True)
-        patient_df = patient_df.set_index('date').asfreq('D')
-        patient_df = patient_df.ffill()
-        patient_df = patient_df.reset_index()
+        patient_df = prepare_patient_df(pid, patient_df)
 
         if 'label' not in patient_df.columns:
             continue
@@ -38,8 +62,9 @@ def data_frame_to_supervised(df, window_size=5, predict_ahead=1):
         if len(patient_df) < window_size + predict_ahead:
             continue
 
-        feature_cols = [c for c in patient_df.columns if c not in ['date', 'symptom_degree', 'label']]
+        feature_cols = [c for c in patient_df.columns if c not in FEATURE_EXCLUDE]
         values = patient_df[feature_cols].values
+
 
         # include feature names
         if feature_names is None:
@@ -68,12 +93,9 @@ def data_frame_to_supervised(df, window_size=5, predict_ahead=1):
 
     return np.array(X), np.array(Y), np.array(pids), feature_names
 
-def prepare_data(filepath, window_size=10, predict_ahead=1, test_size=0.2, random_state=42):
-  
-    # load
-    df = pd.read_excel(filepath)
+                                
 
-    # parse string lists
+def preprocess(df):
     df['hrv_rmssd'] = df['hrv_rmssd'].apply(ast.literal_eval)
     df['bpm'] = df['bpm'].apply(ast.literal_eval)
 
@@ -93,22 +115,30 @@ def prepare_data(filepath, window_size=10, predict_ahead=1, test_size=0.2, rando
 
     #add hrv and bpm features to cleaned data frame
     df = pd.concat([df, hrv_features, bpm_features], axis=1)
+    df = df.sort_values(['terra_user_id', 'date'])
+
+    return df
+
+
+def prepare_data(filepath, window_size=5, predict_ahead=1, test_size=0.2, random_state=42):
+    df = pd.read_excel(filepath)
+    df = preprocess(df)
 
     # set regression target (0–7 symptom severity)
     df['label'] = df['symptom_degree']
 
     # possibility to filter patients 
-    df = df[df.groupby('terra_user_id')['label'].transform('sum') >= 1]
+    df = df[df.groupby('terra_user_id')['label'].transform('sum') >= 0]
     num_patients = df['terra_user_id'].nunique()
 
     # order the data frame based on user and date
     df = df.sort_values(['terra_user_id', 'date'])
 
     # rolling window
-    X, Y, pids, feature_names = data_frame_to_supervised(df)
+    X, Y, pids, feature_names = data_frame_to_supervised(df, window_size=window_size, predict_ahead=predict_ahead)
 
     # define the splitting process (for testing and training)
-    gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+    gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
 
     # train/test split (no patient overlap)
     train_idx, test_idx = next(gss.split(X, Y, groups=pids))
@@ -119,7 +149,7 @@ def prepare_data(filepath, window_size=10, predict_ahead=1, test_size=0.2, rando
     train_pids = set(pids[train_idx]) # Unique set of patients in the training set
     test_pids = set(pids[test_idx]) # Unique set of patients in the test set
 
-    train_groups = pids[train_idx] # Patient IDs for each training sample (keeps grouping info for GroupKFold / CV)
+    train_groups = pids[train_idx] # Patient IDs for each training sample (for GroupKFold)
 
     test_groups = pids[test_idx] # Patient IDs for each test sample
 

@@ -45,4 +45,4 @@ def train_rf(X_train, y_train, train_groups):
 
     best_model = tuner_model.best_estimator_
 
-    return best_model, tuner_model  # return the actual model along with the tuner containing hyperparameters search process
+    return best_model, tuner_model  

@@ -8,7 +8,7 @@ def train_xgboost(X_train, Y_train, train_groups):
     base_model = xgb.XGBRegressor(
         objective="reg:squarederror",
         random_state=42,
-        n_jobs=-1
+        n_jobs=2
     )
 
     param_dist = {
@@ -47,4 +47,4 @@ def train_xgboost(X_train, Y_train, train_groups):
 
     best_model = tuner_model.best_estimator_
 
-    return best_model, tuner_model # the actual model along with the tuner containing hyperparameters search process
+    return best_model, tuner_model 

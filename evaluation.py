@@ -6,7 +6,6 @@ from scipy.stats import spearmanr
 
 def evaluate(model, tuner_model, X_test, Y_test, feature_names, num_patients, test_groups):
 
-
     # feature importance
     importances = model.feature_importances_
 

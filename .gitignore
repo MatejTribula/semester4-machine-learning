@@ -208,3 +208,7 @@ __marimo__/
 
 #data set
 merged_combined_samples_data.xlsx
+
+# MLflow
+mlruns/
+mlflow.db

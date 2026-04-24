@@ -6,3 +6,7 @@ xgboost
 scikit-learn
 scipy
 lightgbm
+mlflow
+fastapi
+uvicorn
+python-multipart
