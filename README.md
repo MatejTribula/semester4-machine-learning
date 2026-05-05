@@ -179,18 +179,22 @@ Each model is evaluated on the held-out test set with the following metrics:
 - **Per-patient RMSE** — mean, std, and worst RMSE broken down by patient
 
 ### 12. Log the RMSE metric
+**File:** `main.py`
 
 ```python
 mlflow.log_metric("rmse", rmse)
 ```
 
-### 14. Save the model
+### 13. Save the model and store artifacts to Supabase S3
+**File:** `main.py`
 
 ```python
 mlflow.sklearn.log_model(model, "model", registered_model_name=model_name)
 ```
 
-### 16. Promote the most accurate model to production
+Model files (weights, metadata, dependencies) are uploaded to a Supabase S3-compatible bucket (`s3://ml-models`). Run metadata (metrics, params, model versions) is stored locally in `mlflow.db`. The S3 endpoint and credentials are configured via `.env` and passed to MLflow through `MLFLOW_S3_ENDPOINT_URL` and standard `AWS_*` environment variables.
+
+### 14. Promote the most accurate model to Production
 
 ```python
     for entry in MODEL_CONFIG.values():
@@ -210,7 +214,7 @@ mlflow.sklearn.log_model(model, "model", registered_model_name=model_name)
         )
 ```
 
-### 17. Define API endpoint
+### 15. Define API endpoint
 
 ```python
 @app.post("/predict")
