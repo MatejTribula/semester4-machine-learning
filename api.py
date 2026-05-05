@@ -1,10 +1,16 @@
 import io
+import os
 
 import mlflow
 import pandas as pd
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile
 
 from data_standardization import get_inference_windows, preprocess
+
+load_dotenv()
+os.environ["MLFLOW_S3_ENDPOINT_URL"] = os.getenv("AWS_ENDPOINT_URL")
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
 app = FastAPI()
 
