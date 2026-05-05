@@ -5,6 +5,23 @@ from models.randomforest import train_rf
 from evaluation import evaluate
 import mlflow
 
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
+os.environ["MLFLOW_S3_ENDPOINT_URL"] = os.getenv("AWS_ENDPOINT_URL")
+
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
+
+client = mlflow.tracking.MlflowClient()
+artifact_location = os.getenv("MLFLOW_ARTIFACT_ROOT")
+try:
+    client.create_experiment("ml-pipeline", artifact_location=artifact_location)
+except Exception:
+    pass  # experiment already exists
+
+mlflow.set_experiment("ml-pipeline")
+
 MODEL_CONFIG = {
     "xgboost": {"fn": train_xgboost, "name": "xgboost"},
     "lgbm":    {"fn": train_lgbm,    "name": "lightgbm"},

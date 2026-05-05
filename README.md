@@ -31,14 +31,20 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### 6. Start the Uvicorn server (in another terminal)
+### 6. Start the MLflow UI (in another terminal)
+```bash
+source venv/bin/activate
+mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5001
+```
+
+### 7. Start the Uvicorn server (in another terminal)
 
 ```bash
 source venv/bin/activate
 uvicorn api:app --reload
 ```
 
-### 7. Deactivate when done
+### 7*. Deactivate when done
 
 ```bash
 deactivate

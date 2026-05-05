@@ -10,3 +10,5 @@ mlflow
 fastapi
 uvicorn
 python-multipart
+python-dotenv
+boto3
